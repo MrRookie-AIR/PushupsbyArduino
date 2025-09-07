@@ -75,23 +75,30 @@ def get_violation_by_rule(rule_id):
         log(f"❌ get_violation_by_rule: {e}")
         return None
 
-def get_pushup_count(child_id):
+def get_pushup_data(child_id):
+    """
+    Возвращает кортеж (push_ups, rest_time) для заданного child_id
+    из таблицы parents, беря самую свежую запись.
+    """
     try:
         conn = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS,
                                db=DB_NAME, charset="utf8mb4")
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT push_ups
+                SELECT push_ups, time
                 FROM parents
                 WHERE p_id=10 AND ch_id=%s
                 ORDER BY id DESC
                 LIMIT 1
             """, (int(child_id),))
             row = cur.fetchone()
-            return str(row[0]) if row else "20"
+            if row:
+                return str(row[0]), str(row[1])
+            else:
+                return "20", "20"
     except Exception as e:
-        log(f"❌ get_pushup_count: {e}")
-        return "20"
+        log(f"❌ get_pushup_data: {e}")
+        return "20", "20"
 
 def call_php_payment_by_rule(rule_id):
     viol_id = get_violation_by_rule(rule_id)
@@ -185,8 +192,8 @@ def main():
                 log(f"⚠️ Нет ребёнка для rule_id={rule_id}")
                 continue
 
-            pushups = get_pushup_count(child_id)
-            cmd = f"{child_id}|{user_name}|{pushups}"
+            pushups, rest_time = get_pushup_data(child_id)
+            cmd = f"{child_id}|{user_name}|{pushups}|{rest_time}"
             log(f"📤 Шлём Arduino: {cmd}")
             ser.write((cmd + "\n").encode())
             ser.flush()
